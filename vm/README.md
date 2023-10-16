@@ -1,13 +1,21 @@
-# Setup using ubuntu example:
+# Setup using vagrant example:
 
 ## Create VM
 
-```
-cd ubuntu
+There are examples for 2 distros: `ubuntu` and `oracle9`
 
-# create and install VM
+For ubuntu: `cd ubuntu`
+
+For oracle9: `cd oracle9`
+
+```
+# in the selected directory with Vagrantfile, create and install VM using:
 vagrant up
 ```
+
+# Connect into VM
+
+`vagrant ssh`
 
 ## 1. check if NIC listed as Network devices using DPDK-compatible driver:
 
@@ -38,6 +46,13 @@ Node Pages Size Total
 Hugepages mounted on /dev/hugepages
 ```
 
+To allocate hugepages:
+
+```
+sudo dpdk-hugepages.py -m
+sudo dpdk-hugepages.py --setup 1G
+```
+
 # 3a. Minimalistic start of ipfixprobe - DPDK:
 
 ```
@@ -57,4 +72,8 @@ See `ipfixprobe -h output` to get more details. Example to send IPFIX data to fl
 -o "ipfix;h=mycollector.example.com;p=4739"
 ```
 
+# 4. Example jupyter notebook
 
+```
+cd /notebook; python -m notebook --ServerApp.ip=0.0.0.0 --port 8080"
+```
