@@ -1,0 +1,9 @@
+notebook
+numpy
+pandas
+seaborn
+cartopy
+matplotlib
+geoip2
+pyasn
+
