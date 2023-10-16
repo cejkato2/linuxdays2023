@@ -1,0 +1,63 @@
+# -*- mode: ruby -*-
+Vagrant.configure("2") do |config|
+  config.vm.box_check_update = true
+  config.vm.provider "virtualbox" do |v|
+    #v.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.1", "1"]
+    #v.customize ["setextradata", :id, "VBoxInternal/CPUM/SSE4.2", "1"]
+
+    # This can be used to add and set nic2:
+    #v.customize ["modifyvm", :id, "--nic2", "hostonly", "--hostonlyadapter2",
+    #   "vboxnet0", "--nicpromisc2", "allow-all"]
+
+    v.memory = "4096"
+    v.cpus = 3
+  end
+  # This can be used to add bridge NIC - update 'wlo1' to your interface:
+  config.vm.network "public_network", bridge: "wlo1"
+
+  config.vm.network "forwarded_port", guest: 8080, host: 8080, host_ip: "127.0.0.1"
+
+  config.vm.synced_folder "../../notebook/", "/notebook", type: "rsync"
+
+  config.vm.define "oraclelinux" do |m|
+    m.vm.box = "generic/oracle9"
+
+    m.vm.provision "shell", inline: <<-SHELL
+      # Install dependencies in oraclelinux:8-slim
+      dnf -y install oracle-epel-release-el9 yum-utils dnf-plugins-core
+      yum-config-manager --enable ol9_codeready_builder
+      dnf -y copr enable @CESNET/NEMEA-stable
+
+      dnf -y install wget git libpcap file diffutils libatomic dpdk dpdk dpdk-tools dpdk-devel \
+        kernel-modules nemea-framework-devel python3 python3-devel python3-pip python3-wheel gcc
+
+      (
+        git clone https://github.com/cesnet/ipfixprobe
+        cd ipfixprobe/
+        autoreconf -i && ./configure -q --prefix=/usr --with-dpdk --with-nemea && make -j5 install
+      )
+
+      (
+        sudo -u vagrant pip3 install --upgrade pip
+        sudo -u vagrant pip3 install -r /notebook/requirements.txt
+        mkdir -p /usr/share/GeoIP
+        wget -q -O /usr/share/GeoIP/GeoLite2-City.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb
+      )
+      firewall-cmd --add-port 8080/tcp --permanent
+      firewall-cmd --reload
+    SHELL
+
+    m.vm.provision 'shell', reboot: true
+
+    m.vm.provision "shell", inline: <<-SHELL
+      ip l set down dev eth1
+      modprobe uio_pci_generic
+      dpdk-devbind.py -b uio_pci_generic 0000:00:08.0
+
+      dpdk-hugepages.py -m
+      dpdk-hugepages.py --setup 1G
+      echo "To start jupyter notebook server, run: cd /notebook; python -m notebook --ServerApp.ip=0.0.0.0 --port 8080" >&2
+    SHELL
+  end
+end
+
